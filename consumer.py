@@ -120,6 +120,30 @@ def subscribe_to_channel(channel_name):
 
 def unsubscribe_from_channel(channel_name):
     '''Annulla la sottoscrizione dell'utente da un canale e chiude il listener Pub/Sub se attivo.'''
+    global subscribed_channels_pubsub
+    if not current_user:
+        print("Devi prima fare il login.")
+        return
+
+    user_channels = get_user_subscribed_channels(current_user)
+    if channel_name not in user_channels:
+        print(f"Non sei sottoscritto al canale '{channel_name}'.")
+        return
+
+    user_channels.remove(channel_name)
+    save_user_subscribed_channels(current_user, user_channels)
+
+    if channel_name in subscribed_channels_pubsub:
+        pubsub_instance = subscribed_channels_pubsub.pop(channel_name)
+        pubsub_channel_name = f"pubsub:{channel_name}"
+        try:
+            pubsub_instance.unsubscribe(pubsub_channel_name)
+            pubsub_instance.close() # Chiude la connessione pubsub
+            print(f"Sottoscrizione a '{channel_name}' annullata.")
+        except Exception as e:
+            print(f"Errore durante l'annullamento della sottoscrizione da {channel_name}: {e}")
+    else:
+        print(f"Non stavi ascoltando attivamente il canale '{channel_name}' (nessun listener Pub/Sub attivo).")
 
 
 def manage_subscriptions():

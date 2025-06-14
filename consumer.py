@@ -13,7 +13,7 @@ except redis.exceptions.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit()
 
-# Durata (in secondi) da cui recuperare le notifiche persistenti all'avvio (es. 24 ore)
+# Tempo di notifiche in secondi
 LIMITE_TEMPO_NOTIFICHE = 5 * 60
 
 current_user = None

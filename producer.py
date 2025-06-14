@@ -32,5 +32,26 @@ def create_notification():
         "channel": channel
     }
 
-
     notification_json = json.dumps(notification_data)
+
+    pubsub_channel_name = f"pubsub:{channel}"
+    r.publish(pubsub_channel_name, notification_json)
+    print(f"Notifica pubblicata sul canale Pub/Sub '{pubsub_channel_name}'")
+
+    zset_key = f"notifications:{channel}"
+    r.zadd(zset_key, {notification_json: timestamp})
+    print(f"Notifica salvata in '{zset_key}' per persistenza.")
+
+    cutoff_timestamp = timestamp - NOTIFICATION_TTL_SECONDS
+    removed_count = r.zremrangebyscore(zset_key, '-inf', cutoff_timestamp)
+    if removed_count > 0:
+        print(f"Rimosse {removed_count} notifiche vecchie da '{zset_key}'.")
+
+    print("--- Notifica Inviata ---")
+
+if __name__ == "__main__":
+    while True:
+        create_notification()
+        if input("Creare un'altra notifica? (s/n): ").lower() != 's':
+            break
+    print("Produttore terminato.")

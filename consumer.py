@@ -21,7 +21,29 @@ subscribed_channels_pubsub = {} # Dizionario per tenere traccia degli oggetti Pu
 
 def display_notification(notification_data, source="Real-time"):
     """Visualizza una notifica formattata."""
-    
+    # Se notification_data è una stringa JSON, la parsa
+    try:
+        # Se notification_data è una stringa JSON, la parsa
+        if isinstance(notification_data, str):
+            data = json.loads(notification_data)
+        else:
+            data = notification_data # Già un dizionario
+
+        channel = data.get("channel", "N/A")
+        title = data.get("title", "N/A")
+        message = data.get("message", "N/A")
+        timestamp = data.get("timestamp", time.time())
+        readable_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+
+        print(f"\n🔔 [{source}] Notifica da '{channel}' ({readable_time}) 🔔")
+        print(f"   Titolo: {title}")
+        print(f"   Messaggio: {message}")
+        print("-" * 30)
+
+    except json.JSONDecodeError:
+        print(f"\n⚠️ Errore: Ricevuto messaggio non JSON: {notification_data}")
+    except Exception as e:
+        print(f"\n⚠️ Errore nella visualizzazione della notifica: {e}")
 
 
 def register_user():

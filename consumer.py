@@ -14,7 +14,7 @@ except redis.exceptions.ConnectionError as e:
     exit()
 
 # Durata (in secondi) da cui recuperare le notifiche persistenti all'avvio (es. 24 ore)
-LIMITE_TEMPO_NOTIFICHE = 5 * 60
+LIMITE_TEMPO_NOTIFICHE = 1 * 60
 
 current_user = None
 subscribed_channels_pubsub = {} # Dizionario per tenere traccia degli oggetti PubSub per canale

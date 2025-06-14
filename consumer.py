@@ -26,6 +26,19 @@ def display_notification(notification_data, source="Real-time"):
 
 def register_user():
     print("\n--- Registrazione Nuovo Utente ---")
+    username = input("Scegli un username: ").strip()
+    password = input("Scegli una password: ")
+
+    user_key = f"user:{username}"
+    if r.exists(user_key):
+        print("Username già esistente. Prova con un altro.")
+        return False
+
+    hashed_password = generate_password_hash(password)
+    r.hmset(user_key, {"password_hash": hashed_password, "channels": ""}) # Inizialmente nessun canale
+    print(f"Utente '{username}' registrato con successo!")
+    return True
+
 
 def login_user():
     global current_user

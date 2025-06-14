@@ -115,7 +115,45 @@ def pubsub_listener_thread(pubsub_instance, channel_name):
 
 def subscribe_to_channel(channel_name):
     '''Sottoscrive l'utente a un canale e recupera le notifiche recenti.'''
-    
+    global subscribed_channels_pubsub
+    if not current_user:
+        print("Devi prima fare il login.")
+        return
+
+    # Aggiungi alla lista dei canali dell'utente
+    user_channels = get_user_subscribed_channels(current_user)
+    if channel_name in user_channels:
+        print(f"Sei già sottoscritto al canale '{channel_name}'.")
+        return
+
+    user_channels.add(channel_name)
+    save_user_subscribed_channels(current_user, user_channels)
+
+    # 1. Recupera notifiche recenti dalla Sorted Set
+    zset_key = f"notifications:{channel_name}"
+    cutoff_timestamp = time.time() - FETCH_NOTIFICATIONS_FROM_SECONDS
+    # Ottieni notifiche con score (timestamp) maggiore di cutoff_timestamp
+    recent_notifications = r.zrangebyscore(zset_key, cutoff_timestamp, '+inf', withscores=False)
+    if recent_notifications:
+        print(f"\n--- Notifiche Recenti da '{channel_name}' (ultime {FETCH_NOTIFICATIONS_FROM_SECONDS // 3600} ore) ---")
+        for notif_json in recent_notifications:
+            display_notification(notif_json, source=f"Storico ({channel_name})")
+    else:
+        print(f"Nessuna notifica recente trovata per '{channel_name}'.")
+
+    # 2. Sottoscrivi al canale Pub/Sub in un thread separato
+    if channel_name not in subscribed_channels_pubsub:
+        pubsub_channel_name = f"pubsub:{channel_name}"
+        p = r.pubsub(ignore_subscribe_messages=False) # ignore_subscribe_messages=False per vedere messaggi di (un)subscribe
+        p.subscribe(pubsub_channel_name)
+        subscribed_channels_pubsub[channel_name] = p
+
+        # Avvia il thread listener
+        thread = threading.Thread(target=pubsub_listener_thread, args=(p, channel_name), daemon=True)
+        thread.start()
+        print(f"Sottoscrizione a '{channel_name}' avviata. In ascolto per nuove notifiche...")
+    else:
+         print(f"Sei già in ascolto su Pub/Sub per '{channel_name}'.")
 
 
 def unsubscribe_from_channel(channel_name):

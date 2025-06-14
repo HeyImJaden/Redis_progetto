@@ -59,8 +59,11 @@ def register_user():
         print("Username già esistente. Prova con un altro.")
         return False
 
-    r.hmset(user_key, {"password": password, "channels": ""}) # Inizialmente nessun canale
+    r.hset(user_key, mapping={"password": password, "channels": ""})
+    global current_user
+    current_user = username
     print(f"Utente '{username}' registrato con successo!")
+    
     return True
 
 
@@ -122,15 +125,16 @@ def subscribe_to_channel(channel_name):
         print("Devi prima fare il login.")
         return
 
+#    if '.' not in channel_name:
+#        channel_name = f"{channel_name}.*"
     # Aggiungi alla lista dei canali dell'utente
     user_channels = get_user_subscribed_channels(current_user)
-    is_new_subscription = channel_name not in user_channels
-    if is_new_subscription:
+    if channel_name not in user_channels:
         user_channels.add(channel_name)
         save_user_subscribed_channels(current_user, user_channels)
 
     # 1. Recupera notifiche recenti dalla Sorted Set SOLO se nuova sottoscrizione o richiesto esplicitamente
-    if is_new_subscription:
+    if channel_name not in user_channels:
         zset_key = f"notifications:{channel_name}"
         cutoff_timestamp = time.time() - LIMITE_TEMPO_NOTIFICHE
         recent_notifications = r.zrangebyscore(zset_key, cutoff_timestamp, '+inf', withscores=False)
@@ -145,6 +149,11 @@ def subscribe_to_channel(channel_name):
     if channel_name not in subscribed_channels_pubsub:
         pubsub_channel_name = f"pubsub:{channel_name}"
         p = r.pubsub(ignore_subscribe_messages=False)
+        # se channel_name contiene * faccio psubscribe, altrimenti subscribe
+#        if '*' in channel_name:
+#            p.psubscribe(pubsub_channel_name)
+#        else:
+#            p.subscribe(pubsub_channel_name)
         p.subscribe(pubsub_channel_name)
         subscribed_channels_pubsub[channel_name] = p
         thread = threading.Thread(target=pubsub_listener_thread, args=(p, channel_name), daemon=True)
@@ -162,6 +171,8 @@ def unsubscribe_from_channel(channel_name):
         return
 
     user_channels = get_user_subscribed_channels(current_user)
+#    if '.' not in channel_name:
+#        channel_name = f"{channel_name}.*"
     if channel_name not in user_channels:
         print(f"Non sei sottoscritto al canale '{channel_name}'.")
         return
@@ -198,21 +209,21 @@ def manage_subscriptions():
 
         print("Attualmente in ascolto (Pub/Sub):", ", ".join(subscribed_channels_pubsub.keys()))
 
-        action = input("Cosa vuoi fare? (s: sottoscrivi, u: annulla, l: lista, b: indietro): ").lower()
-        if action == 's':
-            channel = input("Nome del canale a cui sottoscriverti: ").strip()
+        scelta = input("Cosa vuoi fare? (1: Iscriviti, 2: Disiscriviti, 3: Lista Notifiche Canali, 4: Vai Indietro): ")
+        if scelta == '1':
+            channel = input("Inserisci il nome del canale a cui sottoscriverti: ").strip()
             if channel:
                 subscribe_to_channel(channel)
-        elif action == 'u':
-            channel = input("Nome del canale da cui annullare la sottoscrizione: ").strip()
+        elif scelta == '2':
+            channel = input("Inserisci il nome del canale da cui annullare la sottoscrizione: ").strip()
             if channel:
                 unsubscribe_from_channel(channel)
-        elif action == 'l':
+        elif scelta == '3':
             # Ricarica e visualizza notifiche storiche per i canali sottoscritti
-            print("Ricaricamento notifiche storiche per i canali sottoscritti...")
+            print("Caricamento notifiche storiche per i canali sottoscritti...")
             for ch in user_channels:
                  subscribe_to_channel(ch) # Questo recupererà anche le notifiche storiche
-        elif action == 'b':
+        elif scelta == '4':
             break
         else:
             print("Azione non valida.")
@@ -223,12 +234,12 @@ def main_consumer_loop():
     '''Loop principale del consumatore. Gestisce l'autenticazione e le sottoscrizioni ai canali.'''
     global current_user
     while not current_user:
-        choice = input("Vuoi (l)ogarti o (r)egistrarti? (q per uscire): ").lower()
-        if choice == 'l':
+        scelta = input("1. Loggarti 2. Registrarti 3. Uscita): ")
+        if scelta == '1':
             login_user()
-        elif choice == 'r':
+        elif scelta == '2':
             register_user()
-        elif choice == 'q':
+        elif scelta == '3':
             return
         else:
             print("Scelta non valida.")
@@ -257,10 +268,10 @@ def main_consumer_loop():
 
         while True:
             print("\n--- Menu Consumatore ---")
-            action = input("Cosa vuoi fare? (m: gestisci sottoscrizioni, q: quit): ").lower()
-            if action == 'm':
+            scelta = input("Cosa vuoi fare? (1. Gestisci Iscrizioni 2. Esci): ")
+            if scelta == '1':
                 manage_subscriptions()
-            elif action == 'q':
+            elif scelta == '2':
                 print("Disconnessione in corso...")
                 for channel_name, pubsub_instance in list(subscribed_channels_pubsub.items()):
                     pubsub_channel_name = f"pubsub:{channel_name}"
@@ -278,7 +289,7 @@ def main_consumer_loop():
                 print("Azione non valida. Le notifiche live continueranno ad arrivare.")
             time.sleep(0.1)
     
-
+'''
 def receive_realtime_notifications(channel_name):
     """
     Riceve notifiche in tempo reale da un canale Pub/Sub specifico.
@@ -298,14 +309,13 @@ def receive_realtime_notifications(channel_name):
         p.unsubscribe(pubsub_channel_name)
         p.close()
         print(f"Disiscritto da {pubsub_channel_name}.")
-
+'''
 
 if __name__ == "__main__":
     try:
         main_consumer_loop()
     except KeyboardInterrupt:
         print("\nUscita forzata. Pulisco...")
-        # Simile al blocco 'q' nel loop principale per una chiusura pulita
         if current_user and subscribed_channels_pubsub:
             for channel_name, pubsub_instance in list(subscribed_channels_pubsub.items()):
                 pubsub_channel_name = f"pubsub:{channel_name}"

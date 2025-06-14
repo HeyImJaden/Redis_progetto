@@ -24,6 +24,9 @@ def create_notification():
         print("Canale, titolo e messaggio non possono essere vuoti.")
         return
 
+#   if '.' not in channel:
+#        channel = f"{channel}.*"
+
     timestamp = time.time()
     notification_data = {
         "title": title,

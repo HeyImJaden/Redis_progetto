@@ -97,7 +97,20 @@ def save_user_subscribed_channels(username, channels_set):
 
 def pubsub_listener_thread(pubsub_instance, channel_name):
     """Ascolta i messaggi su un canale Pub/Sub specifico."""
-    
+    print(f"  [Thread] In ascolto su Pub/Sub channel: {channel_name}")
+    try:
+        for message in pubsub_instance.listen():
+            if message["type"] == "message":
+                display_notification(message["data"], source=f"Live ({channel_name})")
+            elif message["type"] == "subscribe":
+                print(f"  [Thread] Sottoscritto con successo a {message['channel']}")
+            elif message["type"] == "unsubscribe":
+                print(f"  [Thread] Annullata sottoscrizione da {message['channel']}")
+                break
+    except redis.exceptions.ConnectionError:
+        print(f"  [Thread] Connessione a Redis persa per il canale {channel_name}. Thread terminato.")
+    except Exception as e:
+        print(f"  [Thread] Errore nel listener Pub/Sub per {channel_name}: {e}. Thread terminato.")
 
 
 def subscribe_to_channel(channel_name):

@@ -56,8 +56,7 @@ def register_user():
         print("Username già esistente. Prova con un altro.")
         return False
 
-    hashed_password = generate_password_hash(password)
-    r.hmset(user_key, {"password_hash": hashed_password, "channels": ""}) # Inizialmente nessun canale
+    r.hmset(user_key, {"password": password, "channels": ""}) # Inizialmente nessun canale
     print(f"Utente '{username}' registrato con successo!")
     return True
 

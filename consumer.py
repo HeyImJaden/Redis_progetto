@@ -13,7 +13,7 @@ except redis.exceptions.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit()
 
-# Tempo di notifiche in secondi
+# Durata (in secondi) da cui recuperare le notifiche persistenti all'avvio (es. 24 ore)
 LIMITE_TEMPO_NOTIFICHE = 5 * 60
 
 current_user = None
@@ -56,7 +56,8 @@ def register_user():
         print("Username già esistente. Prova con un altro.")
         return False
 
-    r.hmset(user_key, {"password": password, "channels": ""}) # Inizialmente nessun canale
+    hashed_password = generate_password_hash(password)
+    r.hmset(user_key, {"password_hash": hashed_password, "channels": ""}) # Inizialmente nessun canale
     print(f"Utente '{username}' registrato con successo!")
     return True
 
@@ -64,6 +65,23 @@ def register_user():
 def login_user():
     global current_user
     print("\n--- Login Utente ---")
+    username = input("Username: ").strip()
+    password = input("Password: ")
+
+    user_key = f"user:{username}"
+    user_data = r.hgetall(user_key)
+
+    if not user_data:
+        print("Username non trovato.")
+        return False
+
+    if check_password_hash(user_data.get("password_hash", ""), password):
+        current_user = username
+        print(f"Login effettuato come '{username}'.")
+        return True
+    else:
+        print("Password errata.")
+        return False
     
 
 def get_user_subscribed_channels(username):

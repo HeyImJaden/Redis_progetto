@@ -131,11 +131,11 @@ def subscribe_to_channel(channel_name):
 
     # 1. Recupera notifiche recenti dalla Sorted Set
     zset_key = f"notifications:{channel_name}"
-    cutoff_timestamp = time.time() - FETCH_NOTIFICATIONS_FROM_SECONDS
+    cutoff_timestamp = time.time() - LIMITE_TEMPO_NOTIFICHE
     # Ottieni notifiche con score (timestamp) maggiore di cutoff_timestamp
     recent_notifications = r.zrangebyscore(zset_key, cutoff_timestamp, '+inf', withscores=False)
     if recent_notifications:
-        print(f"\n--- Notifiche Recenti da '{channel_name}' (ultime {FETCH_NOTIFICATIONS_FROM_SECONDS // 3600} ore) ---")
+        print(f"\n--- Notifiche Recenti da '{channel_name}' (ultime {LIMITE_TEMPO_NOTIFICHE // 3600} ore) ---")
         for notif_json in recent_notifications:
             display_notification(notif_json, source=f"Storico ({channel_name})")
     else:
@@ -270,7 +270,18 @@ def main_consumer_loop():
     
 
 if __name__ == "__main__":
-
-    main_consumer_loop()
-    
-        
+    try:
+        main_consumer_loop()
+    except KeyboardInterrupt:
+        print("\nUscita forzata. Pulisco...")
+        # Simile al blocco 'q' nel loop principale per una chiusura pulita
+        if current_user and subscribed_channels_pubsub:
+            for channel_name, pubsub_instance in list(subscribed_channels_pubsub.items()):
+                pubsub_channel_name = f"pubsub:{channel_name}"
+                try:
+                    pubsub_instance.unsubscribe(pubsub_channel_name)
+                    pubsub_instance.close()
+                except: pass # Ignora errori in chiusura forzata
+            subscribed_channels_pubsub.clear()
+    finally:
+        print("Programma consumatore chiuso.")

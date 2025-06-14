@@ -56,8 +56,7 @@ def register_user():
         print("Username già esistente. Prova con un altro.")
         return False
 
-    hashed_password = generate_password_hash(password)
-    r.hmset(user_key, {"password_hash": hashed_password, "channels": ""}) # Inizialmente nessun canale
+    r.hmset(user_key, {"password": password, "channels": ""}) # Inizialmente nessun canale
     print(f"Utente '{username}' registrato con successo!")
     return True
 
@@ -75,7 +74,7 @@ def login_user():
         print("Username non trovato.")
         return False
 
-    if check_password_hash(user_data.get("password_hash", ""), password):
+    if user_data.get("password") == password:
         current_user = username
         print(f"Login effettuato come '{username}'.")
         return True

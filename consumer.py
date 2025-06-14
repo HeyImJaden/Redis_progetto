@@ -21,6 +21,9 @@ subscribed_channels_pubsub = {} # Dizionario per tenere traccia degli oggetti Pu
 
 def display_notification(notification_data, source="Real-time"):
     """Visualizza una notifica formattata."""
+    # Evidenziazione visiva per notifiche live
+    if source.startswith("Live"):
+        print("\n🔔 [Notifica Live] Ricevuta una nuova notifica!")
     # Se notification_data è una stringa JSON, la parsa
     try:
         # Se notification_data è una stringa JSON, la parsa
@@ -121,38 +124,34 @@ def subscribe_to_channel(channel_name):
 
     # Aggiungi alla lista dei canali dell'utente
     user_channels = get_user_subscribed_channels(current_user)
-    if channel_name in user_channels:
-        print(f"Sei già sottoscritto al canale '{channel_name}'.")
-        return
+    is_new_subscription = channel_name not in user_channels
+    if is_new_subscription:
+        user_channels.add(channel_name)
+        save_user_subscribed_channels(current_user, user_channels)
 
-    user_channels.add(channel_name)
-    save_user_subscribed_channels(current_user, user_channels)
+    # 1. Recupera notifiche recenti dalla Sorted Set SOLO se nuova sottoscrizione o richiesto esplicitamente
+    if is_new_subscription:
+        zset_key = f"notifications:{channel_name}"
+        cutoff_timestamp = time.time() - LIMITE_TEMPO_NOTIFICHE
+        recent_notifications = r.zrangebyscore(zset_key, cutoff_timestamp, '+inf', withscores=False)
+        if recent_notifications:
+            print(f"\n--- Notifiche Recenti da '{channel_name}' (ultime {LIMITE_TEMPO_NOTIFICHE // 3600} ore) ---")
+            for notif_json in recent_notifications:
+                display_notification(notif_json, source=f"Storico ({channel_name})")
+        else:
+            print(f"Nessuna notifica recente trovata per '{channel_name}'.")
 
-    # 1. Recupera notifiche recenti dalla Sorted Set
-    zset_key = f"notifications:{channel_name}"
-    cutoff_timestamp = time.time() - LIMITE_TEMPO_NOTIFICHE
-    # Ottieni notifiche con score (timestamp) maggiore di cutoff_timestamp
-    recent_notifications = r.zrangebyscore(zset_key, cutoff_timestamp, '+inf', withscores=False)
-    if recent_notifications:
-        print(f"\n--- Notifiche Recenti da '{channel_name}' (ultime {LIMITE_TEMPO_NOTIFICHE // 3600} ore) ---")
-        for notif_json in recent_notifications:
-            display_notification(notif_json, source=f"Storico ({channel_name})")
-    else:
-        print(f"Nessuna notifica recente trovata per '{channel_name}'.")
-
-    # 2. Sottoscrivi al canale Pub/Sub in un thread separato
+    # 2. Sottoscrivi al canale Pub/Sub in un thread separato SE NON già attivo
     if channel_name not in subscribed_channels_pubsub:
         pubsub_channel_name = f"pubsub:{channel_name}"
-        p = r.pubsub(ignore_subscribe_messages=False) # ignore_subscribe_messages=False per vedere messaggi di (un)subscribe
+        p = r.pubsub(ignore_subscribe_messages=False)
         p.subscribe(pubsub_channel_name)
         subscribed_channels_pubsub[channel_name] = p
-
-        # Avvia il thread listener
         thread = threading.Thread(target=pubsub_listener_thread, args=(p, channel_name), daemon=True)
         thread.start()
         print(f"Sottoscrizione a '{channel_name}' avviata. In ascolto per nuove notifiche...")
     else:
-         print(f"Sei già in ascolto su Pub/Sub per '{channel_name}'.")
+        print(f"Sei già in ascolto su Pub/Sub per '{channel_name}'.")
 
 
 def unsubscribe_from_channel(channel_name):
@@ -241,6 +240,18 @@ def main_consumer_loop():
             print("Sottoscrizione automatica ai canali salvati:", ", ".join(saved_channels))
             for channel in saved_channels:
                 subscribe_to_channel(channel)
+            # Mostra notifiche storiche per tutti i canali sottoscritti
+            print("\n--- Notifiche Storiche dai tuoi canali sottoscritti ---")
+            for channel in saved_channels:
+                zset_key = f"notifications:{channel}"
+                cutoff_timestamp = time.time() - LIMITE_TEMPO_NOTIFICHE
+                recent_notifications = r.zrangebyscore(zset_key, cutoff_timestamp, '+inf', withscores=False)
+                if recent_notifications:
+                    print(f"\nCanale '{channel}':")
+                    for notif_json in recent_notifications:
+                        display_notification(notif_json, source=f"Storico ({channel})")
+                else:
+                    print(f"Nessuna notifica recente per '{channel}'.")
         else:
             print("Nessun canale salvato nel tuo profilo. Vai a 'Gestione Sottoscrizioni' per aggiungerne.")
 
@@ -267,6 +278,27 @@ def main_consumer_loop():
                 print("Azione non valida. Le notifiche live continueranno ad arrivare.")
             time.sleep(0.1)
     
+
+def receive_realtime_notifications(channel_name):
+    """
+    Riceve notifiche in tempo reale da un canale Pub/Sub specifico.
+    Esempio d'uso: receive_realtime_notifications('nome_canale')
+    """
+    pubsub_channel_name = f"pubsub:{channel_name}"
+    p = r.pubsub()
+    p.subscribe(pubsub_channel_name)
+    print(f"In ascolto su {pubsub_channel_name} per notifiche in tempo reale. Premi Ctrl+C per uscire.")
+    try:
+        for message in p.listen():
+            if message["type"] == "message":
+                display_notification(message["data"], source=f"Live ({channel_name})")
+    except KeyboardInterrupt:
+        print("\nInterrotto dall'utente. Uscita dalla ricezione notifiche.")
+    finally:
+        p.unsubscribe(pubsub_channel_name)
+        p.close()
+        print(f"Disiscritto da {pubsub_channel_name}.")
+
 
 if __name__ == "__main__":
     try:

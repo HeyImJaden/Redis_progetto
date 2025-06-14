@@ -186,6 +186,38 @@ def unsubscribe_from_channel(channel_name):
 
 def manage_subscriptions():
     '''Gestisce le sottoscrizioni dell'utente ai canali. Consente di sottoscrivere, annullare e visualizzare i canali.'''
+    if not current_user:
+        print("Devi prima fare il login.")
+        return
+
+    while True:
+        print("\n--- Gestione Sottoscrizioni ---")
+        user_channels = get_user_subscribed_channels(current_user)
+        if user_channels:
+            print("Canali sottoscritti:", ", ".join(user_channels))
+        else:
+            print("Non sei sottoscritto a nessun canale.")
+
+        print("Attualmente in ascolto (Pub/Sub):", ", ".join(subscribed_channels_pubsub.keys()))
+
+        action = input("Cosa vuoi fare? (s: sottoscrivi, u: annulla, l: lista, b: indietro): ").lower()
+        if action == 's':
+            channel = input("Nome del canale a cui sottoscriverti: ").strip()
+            if channel:
+                subscribe_to_channel(channel)
+        elif action == 'u':
+            channel = input("Nome del canale da cui annullare la sottoscrizione: ").strip()
+            if channel:
+                unsubscribe_from_channel(channel)
+        elif action == 'l':
+            # Ricarica e visualizza notifiche storiche per i canali sottoscritti
+            print("Ricaricamento notifiche storiche per i canali sottoscritti...")
+            for ch in user_channels:
+                 subscribe_to_channel(ch) # Questo recupererà anche le notifiche storiche
+        elif action == 'b':
+            break
+        else:
+            print("Azione non valida.")
     
 
 

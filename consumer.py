@@ -223,6 +223,50 @@ def manage_subscriptions():
 
 def main_consumer_loop():
     '''Loop principale del consumatore. Gestisce l'autenticazione e le sottoscrizioni ai canali.'''
+    global current_user
+    while not current_user:
+        choice = input("Vuoi (l)ogarti o (r)egistrarti? (q per uscire): ").lower()
+        if choice == 'l':
+            login_user()
+        elif choice == 'r':
+            register_user()
+        elif choice == 'q':
+            return
+        else:
+            print("Scelta non valida.")
+
+    if current_user:
+        print(f"\nBenvenuto {current_user}!")
+        saved_channels = get_user_subscribed_channels(current_user)
+        if saved_channels:
+            print("Sottoscrizione automatica ai canali salvati:", ", ".join(saved_channels))
+            for channel in saved_channels:
+                subscribe_to_channel(channel)
+        else:
+            print("Nessun canale salvato nel tuo profilo. Vai a 'Gestione Sottoscrizioni' per aggiungerne.")
+
+        while True:
+            print("\n--- Menu Consumatore ---")
+            action = input("Cosa vuoi fare? (m: gestisci sottoscrizioni, q: quit): ").lower()
+            if action == 'm':
+                manage_subscriptions()
+            elif action == 'q':
+                print("Disconnessione in corso...")
+                for channel_name, pubsub_instance in list(subscribed_channels_pubsub.items()):
+                    pubsub_channel_name = f"pubsub:{channel_name}"
+                    try:
+                        print(f"Chiudo listener per {channel_name}")
+                        pubsub_instance.unsubscribe(pubsub_channel_name)
+                        pubsub_instance.close()
+                    except Exception as e:
+                        print(f"Errore chiudendo listener per {channel_name}: {e}")
+                subscribed_channels_pubsub.clear()
+                current_user = None # Logout logico
+                print("Consumatore terminato.")
+                break
+            else:
+                print("Azione non valida. Le notifiche live continueranno ad arrivare.")
+            time.sleep(0.1)
     
 
 if __name__ == "__main__":

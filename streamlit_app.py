@@ -61,11 +61,11 @@ def list_channels_hierarchical():
 
 
 # --- UI ---
-st.title("📡 Gestione Notifiche con Redis")
+st.title("Gestione Notifiche con Redis")
 
-menu = st.sidebar.radio("Navigazione", ["📁 Canali", "✉️ Invia Notifica", "📥 Ricevi Notifiche"])
+menu = st.sidebar.radio("Navigazione", ["Canali", "Invia Notifica", "Ricevi Notifiche"])
 
-if menu == "📁 Canali":
+if menu == "Canali":
     st.header("Crea un nuovo canale")
     tipo = st.radio("Tipo canale", ["Principale", "Sottocanale"])
     name = st.text_input("Nome canale")
@@ -94,10 +94,10 @@ if menu == "📁 Canali":
                 st.success(f"Sottocanale '{name}' creato sotto '{parent}'.")
 
     st.divider()
-    st.subheader("📂 Gerarchia Canali")
+    st.subheader("Gerarchia Canali")
     list_channels_hierarchical()
 
-elif menu == "✉️ Invia Notifica":
+elif menu == "Invia Notifica":
     st.header("Invia una nuova notifica")
 
     channel = st.text_input("Canale (es. sport, sport.calcio)")
@@ -127,10 +127,10 @@ elif menu == "✉️ Invia Notifica":
             cutoff = timestamp - NOTIFICATION_TTL_SECONDS
             r.zremrangebyscore(f"notifications:{channel}", '-inf', cutoff)
 
-            st.success("✅ Notifica inviata!")
+            st.success("Notifica inviata!")
 
-elif menu == "📥 Ricevi Notifiche":
-    st.header("📡 Ricezione in tempo reale")
+elif menu == "Ricevi Notifiche":
+    st.header("Ricezione in tempo reale")
 
     sel_channel = st.text_input("Nome canale da seguire (es. sport)")
     if st.button("Inizia a ricevere"):
@@ -138,9 +138,9 @@ elif menu == "📥 Ricevi Notifiche":
             st.warning("Inserisci un nome canale.")
         else:
             launch_consumer_thread(sel_channel)
-            st.success(f"🔔 In ascolto sul canale '{sel_channel}'...")
+            st.success(f"In ascolto sul canale '{sel_channel}'...")
 
-    st.subheader("📬 Notifiche ricevute:")
+    st.subheader("Notifiche ricevute:")
     if st.session_state.notifications:
         for notif in reversed(st.session_state.notifications[-10:]):
             with st.expander(notif['title']):

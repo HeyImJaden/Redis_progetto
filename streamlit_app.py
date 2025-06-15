@@ -117,7 +117,10 @@ elif menu == "✉️ Invia Notifica":
             }
             data_json = json.dumps(data)
 
-            r.publish(f"pubsub:{channel}", data_json)
+            parts = channel.split('.')
+            for i in range(1, len(parts) + 1):
+                ch = '.'.join(parts[:i])
+                r.publish(f"pubsub:{ch}", data_json)
             r.zadd(f"notifications:{channel}", {data_json: timestamp})
 
             # Pulisce le vecchie notifiche

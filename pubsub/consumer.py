@@ -226,7 +226,7 @@ def main_loop():
     '''Loop principale del consumatore. Gestisce l'autenticazione e le sottoscrizioni ai canali.'''
     global current_user
     while not current_user:
-        scelta = input("1. Loggarti 2. Registrarti 3. Uscita): ")
+        scelta = input("1. Loggarti 2. Registrarti 3. Uscita: ")
         if scelta == '1':
             login()
         elif scelta == '2':

@@ -1,141 +1,3 @@
-'''import streamlit as st
-import redis
-import time
-import json
-import threading
-
-# Connessione a Redis
-r = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
-
-NOTIFICATION_TTL_SECONDS = 24 * 60 * 60
-
-# --- Session State ---
-if "pagina_attiva" not in st.session_state:
-    st.session_state.pagina_attiva = "🏠 Home"
-
-# --- Funzioni ---
-def create_channel_streamlit():
-    st.subheader("Crea Canale")
-    tipo = st.radio("Tipo di canale", ["Principale", "Sottocanale"])
-
-    if tipo == "Principale":
-        name = st.text_input("Nome del canale principale")
-        if st.button("Crea canale principale"):
-            if not name:
-                st.warning("Il nome non può essere vuoto.")
-            elif r.exists(f"channel:{name}"):
-                st.error("Canale già esistente.")
-            else:
-                r.sadd("channels:root", name)
-                r.hset(f"channel:{name}", mapping={"name": name, "parent": ""})
-                st.success(f"Canale principale '{name}' creato.")
-
-    else:
-        name = st.text_input("Nome del nodo/sottocanale (es. sport.calcio)")
-        parent = st.text_input("Nome del canale padre")
-        if st.button("Crea nodo/sottocanale"):
-            if not name or not parent:
-                st.warning("Nome e padre sono obbligatori.")
-            elif r.exists(f"channel:{name}"):
-                st.error("Canale già esistente.")
-            elif not r.exists(f"channel:{parent}"):
-                st.error("Il canale padre specificato non esiste.")
-            else:
-                r.sadd(f"channels:{parent}", name)
-                r.hset(f"channel:{name}", mapping={"name": name, "parent": parent})
-                st.success(f"Nodo '{name}' creato come figlio di '{parent}'.")
-
-def list_channels(parent="root", level=0, collected=None):
-    if collected is None:
-        collected = []
-    if parent == "root":
-        children = r.smembers("channels:root")
-    else:
-        children = r.smembers(f"channels:{parent}")
-    for c in sorted(children):
-        prefix = "\u2003" * level + ("↳ " if level > 0 else "🔷 ")
-        collected.append(prefix + c)
-        list_channels(c, level+1, collected)
-    return collected
-
-def show_channels_streamlit():
-    st.subheader("Elenco Canali e Sottocanali")
-    canali_formattati = list_channels()
-    for voce in canali_formattati:
-        st.markdown(voce)
-
-def create_notification_streamlit():
-    st.subheader("Crea Nuova Notifica")
-    channel = st.text_input("Canale (es. sport, sport.calcio, tecnologia)")
-    title = st.text_input("Titolo della notifica")
-    message = st.text_area("Messaggio della notifica")
-
-    if st.button("Invia notifica"):
-        if not channel or not title or not message:
-            st.warning("Tutti i campi sono obbligatori.")
-            return
-
-        timestamp = time.time()
-        notification_data = {
-            "title": title,
-            "message": message,
-            "timestamp": timestamp,
-            "channel": channel
-        }
-
-        notification_json = json.dumps(notification_data)
-
-        pubsub_channel_name = f"pubsub:{channel}"
-        r.publish(pubsub_channel_name, notification_json)
-
-        zset_key = f"notifications:{channel}"
-        r.zadd(zset_key, {notification_json: timestamp})
-
-        cutoff_timestamp = timestamp - NOTIFICATION_TTL_SECONDS
-        r.zremrangebyscore(zset_key, '-inf', cutoff_timestamp)
-
-        st.success(f"Notifica pubblicata sul canale '{channel}' e salvata.")
-
-def start_consumer(channel_name, message_placeholder):
-    pubsub = r.pubsub()
-    pubsub.subscribe(f"pubsub:{channel_name}")
-
-    for message in pubsub.listen():
-        if message['type'] == 'message':
-            data = json.loads(message['data'])
-            formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(data['timestamp']))
-            with message_placeholder.container():
-                st.info(f"\n📨 **{data['title']}**\n{data['message']}\n🕒 {formatted_time}\n")
-
-
-def receive_notifications():
-    st.subheader("Ricevi notifiche in tempo reale")
-    channel_name = st.text_input("Inserisci il canale da ascoltare")
-    if st.button("Inizia ad ascoltare"):
-        message_placeholder = st.empty()
-        thread = threading.Thread(target=start_consumer, args=(channel_name, message_placeholder), daemon=True)
-        thread.start()
-        st.success(f"In ascolto su 'pubsub:{channel_name}'...")
-
-# --- Interfaccia Streamlit ---
-st.set_page_config(page_title="Gestione Notifiche Redis", layout="centered")
-st.title("🔔 Gestione Canali e Notifiche Redis")
-
-scelta = st.sidebar.radio("Menu", ["🏠 Home", "📦 Crea canale", "📋 Elenca canali", "🔔 Invia notifica", "📥 Ricevi notifiche"],
-                           index=["🏠 Home", "📦 Crea canale", "📋 Elenca canali", "🔔 Invia notifica", "📥 Ricevi notifiche"].index(st.session_state.pagina_attiva))
-st.session_state.pagina_attiva = scelta
-
-if scelta == "🏠 Home":
-    st.write("Benvenuto nell'interfaccia di gestione delle notifiche!")
-elif scelta == "📦 Crea canale":
-    create_channel_streamlit()
-elif scelta == "📋 Elenca canali":
-    show_channels_streamlit()
-elif scelta == "🔔 Invia notifica":
-    create_notification_streamlit()
-elif scelta == "📥 Ricevi notifiche":
-    receive_notifications()
-'''
 import streamlit as st
 import redis
 import threading
@@ -171,16 +33,32 @@ def launch_consumer_thread(channel_name):
         st.session_state.consumer_started = True
 
 # Mostra gerarchia dei canali in modo indentato
-def list_channels_hierarchical(parent="root", level=0):
-    prefix = "  " * level + "├─ "
-    if parent == "root":
-        channels = r.smembers("channels:root")
-    else:
-        channels = r.smembers(f"channels:{parent}")
-    sorted_channels = sorted(channels)
-    for ch in sorted_channels:
-        st.markdown(f"{prefix}**{ch}**")
-        list_channels_hierarchical(ch, level + 1)
+def build_channel_tree():
+    # Recupera tutti i canali esistenti
+    root = list(r.smembers("channels:root"))
+    tree = {}
+
+    def add_children(node_name):
+        children = r.smembers(f"channels:{node_name}")
+        return {child: add_children(child) for child in children}
+
+    for root_channel in sorted(root):
+        tree[root_channel] = add_children(root_channel)
+    return tree
+
+def render_channel_tree(tree, level=0):
+    for name, children in tree.items():
+        padding = level * 20  # 20px per livello
+        st.markdown(
+            f'<div style="padding-left: {padding}px">↳ <strong>{name}</strong></div>',
+            unsafe_allow_html=True
+        )
+        render_channel_tree(children, level + 1)
+
+def list_channels_hierarchical():
+    tree = build_channel_tree()
+    render_channel_tree(tree)
+
 
 # --- UI ---
 st.title("📡 Gestione Notifiche con Redis")

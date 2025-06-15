@@ -10,14 +10,14 @@ except redis.exceptions.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit()
 
-NOTIFICATION_TTL_SECONDS = 24 * 60 * 60
+LIMITE_TEMPO_NOTIFICHE = 24 * 60 * 60
 
 # Struttura canali in Redis:
 # - Set 'channels:root' contiene tutti i canali principali
 # - Set 'channels:{parent}' contiene i figli di un canale
 # - Hash 'channel:{name}' contiene info sul canale (es. nome, padre)
 
-def create_channel():
+def crea_canale():
     print("\n--- Crea Canale ---")
     tipo = input("Vuoi creare un canale principale (p) o un nodo/sottocanale (n)? [p/n]: ").strip().lower()
     if tipo == 'p':
@@ -49,20 +49,20 @@ def create_channel():
     else:
         print("Scelta non valida.")
 
-def list_channels(parent="root", level=0):
+def lista_canali(parent="root", level=0):
     if parent == "root":
         canali = r.smembers("channels:root")
     else:
         canali = r.smembers(f"channels:{parent}")
     for c in sorted(canali):
         print("  " * level + f"- {c}")
-        list_channels(c, level+1)
+        lista_canali(c, level+1)
 
-def show_channels():
+def mostra_canali():
     print("\n--- Elenco Canali e Sottocanali ---")
-    list_channels()
+    lista_canali()
 
-def create_notification():
+def crea_notifica():
     print("\n--- Crea Nuova Notifica (Redis Streams) ---")
     channel = input("Canale (es. 'sport', 'sport.calcio', 'tecnologia'): ").strip()
     title = input("Titolo della notifica: ").strip()
@@ -85,9 +85,9 @@ def create_notification():
     print(f"Notifica aggiunta allo stream '{stream_key}'")
 
     # Pulizia vecchie notifiche (TTL)
-    min_id = f"0-{int((timestamp - NOTIFICATION_TTL_SECONDS) * 1000)}"
+    min_id = f"0-{int((timestamp - LIMITE_TEMPO_NOTIFICHE) * 1000)}"
     r.xtrim(stream_key, minid=min_id, approximate=False)
-    print(f"Vecchie notifiche rimosse da '{stream_key}' (oltre {NOTIFICATION_TTL_SECONDS//3600}h)")
+    print(f"Vecchie notifiche rimosse da '{stream_key}' (oltre {LIMITE_TEMPO_NOTIFICHE//3600}h)")
     print("--- Notifica Inviata ---")
 
 def main_menu():
@@ -99,11 +99,11 @@ def main_menu():
         print("4. Esci")
         scelta = input("Scegli un'opzione: ").strip()
         if scelta == '1':
-            create_channel()
+            crea_canale()
         elif scelta == '2':
-            show_channels()
+            mostra_canali()
         elif scelta == '3':
-            create_notification()
+            crea_notifica()
         elif scelta == '4':
             print("Uscita.")
             break

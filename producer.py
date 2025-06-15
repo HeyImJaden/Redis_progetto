@@ -12,14 +12,14 @@ except redis.exceptions.ConnectionError as e:
     exit()
 
 
-NOTIFICATION_TTL_SECONDS = 24 * 60 * 60
+LIMITE_TEMPO_NOTIFICHE = 24 * 60 * 60
 
 # Struttura canali in Redis:
 # - Set 'channels:root' contiene tutti i canali principali
 # - Set 'channels:{parent}' contiene i figli di un canale
 # - Hash 'channel:{name}' contiene info sul canale (es. nome, padre)
 
-def create_channel():
+def crea_canale():
     print("\n--- Crea Canale ---")
     tipo = input("Vuoi creare un canale principale (p) o un nodo/sottocanale (n)? [p/n]: ").strip().lower()
     if tipo == 'p':
@@ -51,20 +51,20 @@ def create_channel():
     else:
         print("Scelta non valida.")
 
-def list_channels(parent="root", level=0):
+def lista_canali(parent="root", level=0):
     if parent == "root":
         canali = r.smembers("channels:root")
     else:
         canali = r.smembers(f"channels:{parent}")
     for c in sorted(canali):
         print("  " * level + f"- {c}")
-        list_channels(c, level+1)
+        lista_canali(c, level+1)
 
-def show_channels():
+def mostra_canali():
     print("\n--- Elenco Canali e Sottocanali ---")
-    list_channels()
+    lista_canali()
 
-def create_notification():
+def crea_notifica():
     print("\n--- Crea Nuova Notifica ---")
     channel = input("Canale (es. 'sport', 'sport.calcio', 'tecnologia'): ").strip()
     title = input("Titolo della notifica: ").strip()
@@ -92,7 +92,7 @@ def create_notification():
     r.zadd(zset_key, {notification_json: timestamp})
     print(f"Notifica salvata in '{zset_key}' per persistenza.")
 
-    cutoff_timestamp = timestamp - NOTIFICATION_TTL_SECONDS
+    cutoff_timestamp = timestamp - LIMITE_TEMPO_NOTIFICHE
     removed_count = r.zremrangebyscore(zset_key, '-inf', cutoff_timestamp)
     if removed_count > 0:
         print(f"Rimosse {removed_count} notifiche vecchie da '{zset_key}'.")
@@ -108,11 +108,11 @@ def main_menu():
         print("4. Esci")
         scelta = input("Scegli un'opzione: ").strip()
         if scelta == '1':
-            create_channel()
+            crea_canale()
         elif scelta == '2':
-            show_channels()
+            mostra_canali()
         elif scelta == '3':
-            create_notification()
+            crea_notifica()
         elif scelta == '4':
             print("Uscita.")
             break

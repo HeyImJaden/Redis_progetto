@@ -191,7 +191,3 @@ Worker thread per ricezione asincrona messaggi Pub/Sub.
 
 #### `stream_listener(channel_name, last_id)`
 Worker thread per polling Redis Streams con blocking read.
-
-## Configurazione
-
-### Parametri Modificabili
